@@ -1,0 +1,66 @@
+globals (in .bss):
+    pointer to the operand stack
+
+globals (in .data):
+    debug (0 or 1)
+    operand stack size (default: 5. Min: 2, Max: 0xFF)
+    current items in stack (start value: 0)
+
+vars on stack (the normal stack):
+    operations performed (start value: 0. Max: 2^31    
+
+Subroutines / Functions:
+*Calling convention: As in Practical session 4
+    Functions get arguments on the stack
+    Can destroy registers
+    Retrun value - in eax
+*All with debug prints
+
+    main -> Sagiv
+        Process command line arguments
+        Call primary loop
+        Print number of operations performed
+        Exit
+    
+    myCalc (Primary loop) -> Zohar
+        Initialize operand stack
+        Initialize "operations performed" variable
+        In a loop:
+            Print "calc: "
+            Wait for input
+            Parse input (Each input line is no more than 80 characters in length)
+            If operation: Call its function
+            Else (it's a number): Call "Push Hex string number"
+    
+    Push Hex string number -> Sagiv
+        Validate operand stack isn't full
+        Ignore leading zeros
+        For each 2 Hex digits (from the right):
+            Convert string digits to number
+            Allocate memory for the node
+            Build node: data = number; next = 0
+            Update the previous node's "next" to point to the current node
+        Push the first node to the operand stack
+
+    Push node to operand stack (might be error) -> Sagiv
+    Pop from operand stack (might be error) -> Zohar
+    
+    Quit -> Zohar
+    Add -> Zohar
+    Pop-and-print -> Zohar
+    Duplicate -> Sagiv
+    And -> Zohar
+    Or -> Sagiv
+    Number of hexadecimal digits ("n" option) -> Sagiv
+
+
+Allowed C functions:
+gets, getchar, fgets, printf, fprintf, fflush, malloc, calloc, free
+
+
+Schedule:
+    Skeleton (.data, .bss, variables on stack) -> Sagiv
+    main - Sagiv
+    myCalc -> Zohar
+    Quit -> Zohar
+Friday, 15.5.20
