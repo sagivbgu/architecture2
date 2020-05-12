@@ -7,10 +7,10 @@ globals (in .data):
     current items in stack (start value: 0)
 
 vars on stack (the normal stack):
-    operations performed (start value: 0. Max: 2^31    
+    operations performed (start value: 0. Max: 2^31)
 
 Subroutines / Functions:
-*Calling convention: As in Practical session 4
+*Calling convention: As in Practical session 3
     Functions get arguments on the stack
     Can destroy registers
     Retrun value - in eax
@@ -56,11 +56,14 @@ Subroutines / Functions:
 
 Allowed C functions:
 gets, getchar, fgets, printf, fprintf, fflush, malloc, calloc, free
-
+Note from the assignment description:
+    You may use 'stdin' C standard library variable (note that 'FILE * stdin' is
+    variable and not constant; so if you use fgets with stdin, you should push
+    content of stdin as argument into stack - push dword [stdin]) 
 
 Schedule:
     Skeleton (.data, .bss, variables on stack) -> Sagiv
-    main - Sagiv
+    main -> Sagiv
     myCalc -> Zohar
     Quit -> Zohar
 Friday, 15.5.20
