@@ -5,8 +5,7 @@ section .bss
 section .rodata
     printNumberFormat: db "%d", 10, 0
     calcMsg: db "calc: ",0
-    lenCalc: equ$ -calcMsg
-
+    printStringFormat: db "%s", 10, 0	; format string
 
 section .data
     debug: db 0
@@ -22,51 +21,52 @@ section .text
     extern malloc 
     extern calloc 
     extern free 
-    extern gets 
     extern getchar 
     extern fgets 
+ 
 
-%macro quit 1 ;we get the stack so we can free it, and we get the numbers of operands so we can print it
-    freeStack 1
-%endmacro
-
-%macro print 2
+%macro print 2 
+    pushad
     mov ebx, 1
-    mov ecx, %1 ;string
-    mov edx, %2 ;how many bytes to print
+    mov ecx, %1
+    mov edx, %2
     mov eax, 4
     int 0x80
-%endmacro
-
-%macro freeStack  ; we free the nodes from last to first - but its not really matter
-    mov ebx, stackSize
-    startLoop:
-        mov eax, [stack + 4*stackSize] ;gets last place in the stack equals to pop
-        freeNum eax ; sends the last address so we can free it
-        dec ebx
-        cmp ebx, 0
-        je endLoop
-        mov eax, 4
-        jump startLoop
-    endLoop:
-    pushad
-    push stack ;free the stack memory
-    call free
     popad
 %endmacro
 
-%malloc freeNum 1 ; gets address
-;TODO 
-%endmacro
 
-%macro pushReturn
+%macro pushReturn 0; bc we have return value in eax we want to backup all the registers except eax
     push edx
     push ecx
     push ebx
     push esi
     push edi
 %endmacro
+%macro popReturn 0
+    pop edx
+    pop ecx
+    pop ebx
+    pop esi
+    pop edi
+%endmacro
 
+%macro freeStack 0 ; we free the nodes from last to first - but its not really matter
+    pushad
+    mov ebx, stack
+    freeLoop:
+        cmp ebx, 0 ;comparing with null - if its equal we let them go (finally)
+        je endFreeLoop
+        mov eax, ebx
+        add eax, 4 ;points to the next node
+        freeNum ebx
+        mov ebx, eax ;now ebx points to the next node
+    endFreeLoop:
+    popad
+%endmacro
+
+%macro freeNum 1 ; gets address
+%endmacro
 
 main:
     ; Process command line arguments (all optional): "-d" or stackSize
@@ -105,7 +105,7 @@ main:
 
     ; Call the primary loop
     callMyCalc: call myCalc
-        
+    freeStack
     ; Print number of operations performed
     ; Assuming operations performed is in eax
     push eax
@@ -118,47 +118,48 @@ main:
         ret
 
 myCalc:
-    pushad ;fix to return push
+    pushReturn
     mov eax, 4 
     push eax
     mov eax, [stackSize] ; stack size - we need to check somewhere else if the itemsOnStack is valid
     push eax   
     call calloc        
-    mov stack, dword [eax] ; eax has the pointer to the start of the stack
-    popad
-    
+    popReturn ;keeps eax with the ret value
+    add esp, 8 ;cleaning the stack from locals
+    mov dword[stack], eax ; eax has the pointer to the start of the stack
+
     calcLoop:
-        print calcMsg, lenCalc
-        ;we need to backup the registers
+        print calcMsg, 6
+        pushReturn
         mov eax, 3 ; lines 82-86 reads the input to the buffer - eax has the number of bytes that have been recived - the input is valid no need to check
         mov ebx, 0
         mov ecx, buffer
         mov edx, 81
         int 0x80 
+        popReturn
         dec eax ; lenght of the char without the \n
 
         cmp byte [buffer], 'q'
         je endCalcLoop
         cmp byte [buffer], '+'
-        je 
+        ;je 
         cmp byte [buffer], 'p'
-        je 
+        ;je 
         cmp byte [buffer], 'd'
-        je 
+        ;je 
         cmp byte [buffer], '&'
-        je 
+        ;je 
         cmp byte [buffer], '|'
-        je 
+        ;je 
         cmp byte [buffer], 'n'
-        je 
+        ;je 
         cmp byte [buffer], '*'
-        je 
+        ;je 
         ;its a number so we need to parse it
         ;add to the stack
-        jump calcLoop
+        jmp calcLoop
 
     endCalcLoop:
-        quit stack
         mov eax, [itemsInStack]
         ret
 
@@ -198,3 +199,6 @@ hexCharToValue:
     ; Now we know it's a char between 'A' and 'F'
     sub al, 0x7 ; Correct according to offset in ascii table
     returnCharValue: ret
+
+
+
