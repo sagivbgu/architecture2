@@ -62,8 +62,19 @@ Note from the assignment description:
     content of stdin as argument into stack - push dword [stdin]) 
 
 Schedule:
-    Skeleton (.data, .bss, variables on stack) -> Sagiv
-    main -> Sagiv
-    myCalc -> Zohar
-    Quit -> Zohar
-Friday, 15.5.20
+    Make myCalc work -> Zohar
+    Pop from operand stack (might be error) -> Zohar
+    Push node to operand stack (might be error) -> Sagiv
+Sunday, 17.5.20
+
+    Push Hex string number -> Sagiv
+    Add -> Zohar
+Tuesday, 19.5.20
+
+    And -> Zohar
+    Pop-and-print -> Zohar
+    Duplicate -> Sagiv
+    Or -> Sagiv
+    Number of hexadecimal digits ("n" option) -> Sagiv
+    Debug prints -> Validate in the meeting
+Friday, 22.5.20
