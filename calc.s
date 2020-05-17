@@ -40,16 +40,25 @@ section .text
     popad
 %endmacro
 
+; Call a function WHICH DOESN'T EXPECT ANY PARAMETERS, automatically backing up all registers except eax
+%macro callReturn 1
+    pushReturn
+    call %1
+    popReturn
+%endmacro
 
-%macro pushReturn 0; bc we have return value in eax we want to backup all the registers except eax
+; bc we have return value in eax we want to backup all the registers except eax
+%macro pushReturn 0
     push edx
     push ecx
     push ebx
     push esi
     push edi
+    push ebp
 %endmacro
 
 %macro popReturn 0
+    pop ebp
     pop edi
     pop esi
     pop ebx
@@ -57,7 +66,8 @@ section .text
     pop edx
 %endmacro
 
-%macro freeStack 0 ; we free the nodes from last to first - but its not really matter
+; we free the nodes from last to first - but its not really matter
+%macro freeStack 0
     pushad
     mov ebx, stack
     freeLoop:
@@ -83,14 +93,14 @@ add esp, 4
 ; Convert the word %1 containing a hex digit string representation to its value
 ; and move it to %2.
 %macro pushValue 2
-push al
+push eax
 pushReturn
 push word %1
 call hexStringToByte
 add esp, 2 ; "Remove" pushed word from stack
 popReturn
 mov %2, al
-pop al
+pop eax
 %endmacro
 
 main:
@@ -189,9 +199,11 @@ pushHexStringNumber:
     sub esp, 4 ; Will contain address of the first node
     
     ; Push the first node to the operand stack (and validate it's not full)
-    call createNode
-    push eax ; Address of the new node
-    pushNodeToOperandStack
+    callReturn createNode
+    mov [ebp-4], eax ; Address of the new node
+
+    callReturn pushNodeToOperandStack
+    
     cmp eax, 0 ; Pushing succeeded
     jz pushHexStringNumberStart
     
@@ -199,13 +211,13 @@ pushHexStringNumber:
     jmp pushHexStringNumberEnd
 
     pushHexStringNumberStart:
-    pushReturn
-    call countLeadingZeros ; now eax = number of leading zeros
-    popReturn
-
+    callReturn countLeadingZeros ; now eax = number of leading zeros
+    
     convertBufferToNodes:
     mov ecx, [ebp+4] ; String length
-    mov ebx, buffer + ecx - 1 ; ebx = Address of last char
+    mov ebx, buffer
+    add ebx, ecx
+    dec ebx ; ebx = Address of last char
     sub ecx, eax ; ecx = string length - leading zeros.
                  ; This is the number of remaining chars to read
     mov edx, [ebp-4] ; edx = address of current node
@@ -215,7 +227,7 @@ pushHexStringNumber:
         cmp ecx, 1
         mov ebx, [ebx - 1]
         shl ebx, 8 ; Pad with '\0'
-        pushValue ebx, [edx + NODEVALUE]
+        pushValue bx, [edx + NODEVALUE]
         jmp pushHexStringNumberEnd
 
         ; Else, read 2 chars
@@ -227,7 +239,8 @@ pushHexStringNumber:
         cmp ecx, 0
         jz pushHexStringNumberEnd
 
-        createNode
+        callReturn createNode
+        
         mov [edx + NEXTNODE], eax ; Set 'next' field of the previous node to point to the new one
         mov edx, eax
         jmp convertBufferLoop
@@ -241,7 +254,7 @@ countLeadingZeros:
     mov ebx, buffer
     mov eax, 0 ; Leading zeros counter
     countLeadingZerosLoop:
-        cmp [ebx + eax], 0x30 ; '0' in ascii
+        cmp byte [ebx + eax], 0x30 ; '0' in ascii
         jne endCountLeadingZeros
         inc eax
         jmp countLeadingZerosLoop
@@ -310,7 +323,8 @@ freeLinkedList:
 ; Returns 0 in eax in case of success, and 1 in case of failure.
 pushNodeToOperandStack:
     ; Check if stack is full
-    cmp stackSize, itemsInStack
+    mov eax, [itemsInStack]
+    cmp [stackSize], eax
     jne unsafePushNode
     push overflowMsg
     call printf
@@ -320,7 +334,8 @@ pushNodeToOperandStack:
     ; Push to the stack
     unsafePushNode:
     mov ebx, [esp+4]
-    mov [stack + 4 * itemsInStack], ebx
-    inc itemsInStack
+    mov eax, [itemsInStack]
+    mov [stack + 4 * eax], ebx
+    inc byte [itemsInStack]
     mov eax, 0
     ret
