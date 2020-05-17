@@ -4,8 +4,13 @@ section .bss
 
 section .rodata
     printNumberFormat: db "%d", 10, 0
-    calcMsg: db "calc: ",0
     printStringFormat: db "%s", 10, 0	; format string
+
+    calcMsg: db "calc: ", 0
+    overflowMsg: db "Error: Operand Stack Overflow"
+    
+    NODEVALUE: equ 0 ; Offset of the value byte from the beginning of a node
+    NEXTNODE: equ 1 ; Offset of the next-node field (4 bytes) from the beginning of a node
 
 section .data
     debug: db 0
@@ -43,12 +48,13 @@ section .text
     push esi
     push edi
 %endmacro
+
 %macro popReturn 0
-    pop edx
-    pop ecx
-    pop ebx
-    pop esi
     pop edi
+    pop esi
+    pop ebx
+    pop ecx
+    pop edx
 %endmacro
 
 %macro freeStack 0 ; we free the nodes from last to first - but its not really matter
@@ -66,6 +72,25 @@ section .text
 %endmacro
 
 %macro freeNum 1 ; gets address
+%endmacro
+
+%macro freeNode 1
+push dword %1
+call free
+add esp, 4
+%endmacro
+
+; Convert the word %1 containing a hex digit string representation to its value
+; and move it to %2.
+%macro pushValue 2
+push al
+pushReturn
+push word %1
+call hexStringToByte
+add esp, 2 ; "Remove" pushed word from stack
+popReturn
+mov %2, al
+pop al
 %endmacro
 
 main:
@@ -92,20 +117,14 @@ main:
             jmp endParseArgument
 
         parseStackSize:
-            pushad
-            push dx
-            call hexStringToByte
-            mov [stackSize], al
-            add esp, 2 ; "Remove" pushed dx from stack
-            popad
-
+            pushValue dx, [stackSize]
+            
         endParseArgument:
             add ebx, 4
             loop parseArgument, ecx ; Decrement ecx and if ecx != 0, jump to the label
 
     ; Call the primary loop
     callMyCalc: call myCalc
-    freeStack
     ; Print number of operations performed
     ; Assuming operations performed is in eax
     push eax
@@ -118,13 +137,11 @@ main:
         ret
 
 myCalc:
-    pushReturn
     mov eax, 4 
     push eax
-    mov eax, [stackSize] ; stack size - we need to check somewhere else if the itemsOnStack is valid
+    mov eax, [stackSize] ; stack size - we need to check somewhere else if the itemsInStack is valid
     push eax   
     call calloc        
-    popReturn ;keeps eax with the ret value
     add esp, 8 ;cleaning the stack from locals
     mov dword[stack], eax ; eax has the pointer to the start of the stack
 
@@ -156,13 +173,80 @@ myCalc:
         cmp byte [buffer], '*'
         ;je 
         ;its a number so we need to parse it
+        call pushHexStringNumber
         ;add to the stack
         jmp calcLoop
 
     endCalcLoop:
-        mov eax, [itemsInStack]
+        freeStack
+        mov eax, [itemsInStack] ; TODO: we need to return the number of operations performed, not current items in stack
         ret
 
+; Get the number of bytes to read from the buffer, assuming it's a string representing a hex number.
+; Convert the string to its numeric value and push it to the operand stack.
+pushHexStringNumber:
+    mov ebp, esp
+    sub esp, 4 ; Will contain address of the first node
+    
+    ; Push the first node to the operand stack (and validate it's not full)
+    call createNode
+    push eax ; Address of the new node
+    pushNodeToOperandStack
+    cmp eax, 0 ; Pushing succeeded
+    jz pushHexStringNumberStart
+    
+    freeNode [ebp-4]
+    jmp pushHexStringNumberEnd
+
+    pushHexStringNumberStart:
+    pushReturn
+    call countLeadingZeros ; now eax = number of leading zeros
+    popReturn
+
+    convertBufferToNodes:
+    mov ecx, [ebp+4] ; String length
+    mov ebx, buffer + ecx - 1 ; ebx = Address of last char
+    sub ecx, eax ; ecx = string length - leading zeros.
+                 ; This is the number of remaining chars to read
+    mov edx, [ebp-4] ; edx = address of current node
+
+    convertBufferLoop:
+        ; If only 1 char needs to be read
+        cmp ecx, 1
+        mov ebx, [ebx - 1]
+        shl ebx, 8 ; Pad with '\0'
+        pushValue ebx, [edx + NODEVALUE]
+        jmp pushHexStringNumberEnd
+
+        ; Else, read 2 chars
+        pushValue [ebx - 1], [edx + NODEVALUE]
+
+        ; If there are no more chars to read, jump end of function
+        sub ebx, 2
+        sub ecx, 2
+        cmp ecx, 0
+        jz pushHexStringNumberEnd
+
+        createNode
+        mov [edx + NEXTNODE], eax ; Set 'next' field of the previous node to point to the new one
+        mov edx, eax
+        jmp convertBufferLoop
+
+    pushHexStringNumberEnd:
+        mov esp, ebp
+        ret
+        
+; Returns the number of leading '0' characters in buffer
+countLeadingZeros:
+    mov ebx, buffer
+    mov eax, 0 ; Leading zeros counter
+    countLeadingZerosLoop:
+        cmp [ebx + eax], 0x30 ; '0' in ascii
+        jne endCountLeadingZeros
+        inc eax
+        jmp countLeadingZerosLoop
+    endCountLeadingZeros:
+        ret
 
 ; Get a word representing 2 hexadecimal digits and return the value they represent.
 ; Result stored in al.
@@ -200,5 +284,43 @@ hexCharToValue:
     sub al, 0x7 ; Correct according to offset in ascii table
     returnCharValue: ret
 
+; Allocate memory for a node and put its address in eax.
+createNode:
+    push dword 1 ;size
+    push dword 5 ;nmemb
+    call calloc
+    ; Address to the allocated memory is stored in eax
+    add esp, 8
+    ret
+
+; Get an address of the starting node of the list and free the memory allocated for all of the nodes.
+freeLinkedList:
+    mov eax, [esp+4]
+
+    freeNextNode:
+    mov ebx, [eax + NEXTNODE]
+    freeNode eax
+    mov eax, ebx
+    cmp eax, 0
+    jnz freeNextNode
+    ret
 
 
+; Get an address of a node and push it to the end of operand stack.
+; Returns 0 in eax in case of success, and 1 in case of failure.
+pushNodeToOperandStack:
+    ; Check if stack is full
+    cmp stackSize, itemsInStack
+    jne unsafePushNode
+    push overflowMsg
+    call printf
+    mov eax, 1
+    ret
+
+    ; Push to the stack
+    unsafePushNode:
+    mov ebx, [esp+4]
+    mov [stack + 4 * itemsInStack], ebx
+    inc itemsInStack
+    mov eax, 0
+    ret
