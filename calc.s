@@ -183,7 +183,9 @@ myCalc:
         cmp byte [buffer], '*'
         ;je 
         ;its a number so we need to parse it
+        push eax
         call pushHexStringNumber
+        add esp, 4
         ;add to the stack
         jmp calcLoop
 
@@ -215,26 +217,20 @@ pushHexStringNumber:
     
     convertBufferToNodes:
     mov ecx, [ebp+4] ; String length
-    mov ebx, buffer
-    add ebx, ecx
-    dec ebx ; ebx = Address of last char
-    sub ecx, eax ; ecx = string length - leading zeros.
+    mov ebx, eax ; ebx = number of leading zeros
+    sub ecx, ebx ; ecx = string length - leading zeros.
                  ; This is the number of remaining chars to read
     mov edx, [ebp-4] ; edx = address of current node
 
     convertBufferLoop:
         ; If only 1 char needs to be read
         cmp ecx, 1
-        mov ebx, [ebx - 1]
-        shl ebx, 8 ; Pad with '\0'
-        pushValue bx, [edx + NODEVALUE]
-        jmp pushHexStringNumberEnd
+        je convertSingleCharFromBuffer
 
         ; Else, read 2 chars
-        pushValue [ebx - 1], [edx + NODEVALUE]
+        pushValue [buffer + ebx + ecx - 2], [edx + NODEVALUE]
 
         ; If there are no more chars to read, jump end of function
-        sub ebx, 2
         sub ecx, 2
         cmp ecx, 0
         jz pushHexStringNumberEnd
@@ -244,6 +240,10 @@ pushHexStringNumber:
         mov [edx + NEXTNODE], eax ; Set 'next' field of the previous node to point to the new one
         mov edx, eax
         jmp convertBufferLoop
+
+    convertSingleCharFromBuffer:
+        mov bx, [buffer + ebx]
+        pushValue bx, [edx + NODEVALUE]
 
     pushHexStringNumberEnd:
         mov esp, ebp
