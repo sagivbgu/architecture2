@@ -198,18 +198,21 @@ myCalc:
 ; Convert the string to its numeric value and push it to the operand stack.
 pushHexStringNumber:
     mov ebp, esp
-    sub esp, 4 ; Will contain address of the first node
-    
+
     ; Push the first node to the operand stack (and validate it's not full)
     callReturn createNode
-    mov [ebp-4], eax ; Address of the new node
+    mov edx, eax ; edx = Address of the new node
 
-    callReturn pushNodeToOperandStack
+    pushReturn
+    push edx
+    call pushNodeToOperandStack
+    add esp, 4
+    popReturn
     
-    cmp eax, 0 ; Pushing succeeded
+    cmp eax, 0 ; Pushing to operand stack succeeded
     jz pushHexStringNumberStart
     
-    freeNode [ebp-4]
+    freeNode edx
     jmp pushHexStringNumberEnd
 
     pushHexStringNumberStart:
@@ -220,7 +223,11 @@ pushHexStringNumber:
     mov ebx, eax ; ebx = number of leading zeros
     sub ecx, ebx ; ecx = string length - leading zeros.
                  ; This is the number of remaining chars to read
-    mov edx, [ebp-4] ; edx = address of current node
+    ; edx = address of current node
+
+    ; If the number is 0
+    cmp ecx, 0
+    je pushHexStringNumberEnd
 
     convertBufferLoop:
         ; If only 1 char needs to be read
@@ -243,10 +250,10 @@ pushHexStringNumber:
 
     convertSingleCharFromBuffer:
         mov bx, [buffer + ebx]
+        shl bx, 8 ; Fill with zeros
         pushValue bx, [edx + NODEVALUE]
 
     pushHexStringNumberEnd:
-        mov esp, ebp
         ret
         
 ; Returns the number of leading '0' characters in buffer
@@ -334,8 +341,8 @@ pushNodeToOperandStack:
     ; Push to the stack
     unsafePushNode:
     mov ebx, [esp+4]
-    mov eax, [itemsInStack]
-    mov [stack + 4 * eax], ebx
+    mov ecx, [stack]
+    mov [ecx + 4 * eax], ebx
     inc byte [itemsInStack]
     mov eax, 0
     ret
