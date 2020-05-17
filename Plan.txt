@@ -63,18 +63,19 @@ Note from the assignment description:
 
 Schedule:
     Make myCalc work -> Zohar
-    Pop from operand stack (might be error) -> Zohar
     Push node to operand stack (might be error) -> Sagiv
+    Push Hex string number -> Sagiv
 Sunday, 17.5.20
 
-    Push Hex string number -> Sagiv
-    Add -> Zohar
-Tuesday, 19.5.20
-
+    Pop from operand stack (might be error) -> Zohar
+    Prevent memory leaks -> Zohar
     And -> Zohar
     Pop-and-print -> Zohar
+    Add -> Zohar
     Duplicate -> Sagiv
     Or -> Sagiv
     Number of hexadecimal digits ("n" option) -> Sagiv
+Tuesday, 19.5.20
+
     Debug prints -> Validate in the meeting
 Friday, 22.5.20
