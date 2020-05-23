@@ -62,19 +62,10 @@ Note from the assignment description:
     content of stdin as argument into stack - push dword [stdin]) 
 
 Schedule:
-    Make myCalc work -> Zohar
-    Push node to operand stack (might be error) -> Sagiv
-    Push Hex string number -> Sagiv
-Sunday, 17.5.20
-
-    Prevent memory leaks -> Zohar
     And -> Zohar
-    Pop-and-print -> Zohar
     Add -> Zohar
-    Duplicate -> Sagiv
-    Or -> Sagiv
     Number of hexadecimal digits ("n" option) -> Sagiv
-Tuesday, 19.5.20
-
-    Debug prints -> Validate in the meeting
-Friday, 22.5.20
+    
+    Print operations performed -> Sagiv
+    Debug prints -> Sagiv & Zohar
+    Prevent memory leaks -> Sagiv & Zohar
