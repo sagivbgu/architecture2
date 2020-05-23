@@ -8,6 +8,7 @@ section .rodata
 
     calcMsg: db "calc: ", 0
     overflowMsg: db "Error: Operand Stack Overflow"
+    illegalPop: db "Error: Insufficient Number of Arguments on Stack", 0
     
     NODEVALUE: equ 0 ; Offset of the value byte from the beginning of a node
     NEXTNODE: equ 1 ; Offset of the next-node field (4 bytes) from the beginning of a node
@@ -536,7 +537,34 @@ popTwoItemsFromStack:
     mov eax, 0
     ret
 
+<<<<<<< HEAD
     popTwoItemsFromStackEnd:
         mov esp, ebp
         ret
 
+=======
+popNodeFromOperandStack:
+    pushReturn
+    mov edx, [itemsInStack]
+    cmp edx, 0
+    je error
+
+    dec edx ; index starts at 0
+    mov ebx, [stack]
+    mov ecx, [ebx + edx * 4] ;ecx has the pointer to the last node  
+    mov eax, 4
+    mul edx
+    add ebx, eax
+    mov dword[ebx] ,0 ;the last place has null now
+    mov eax, ecx
+    dec byte [itemsInStack]
+    jmp end
+
+    error:
+    mov eax, 0
+    print illegalPop, 48
+
+    end:
+    popReturn
+    ret
+>>>>>>> master

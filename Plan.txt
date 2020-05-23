@@ -67,7 +67,6 @@ Schedule:
     Push Hex string number -> Sagiv
 Sunday, 17.5.20
 
-    Pop from operand stack (might be error) -> Zohar
     Prevent memory leaks -> Zohar
     And -> Zohar
     Pop-and-print -> Zohar
