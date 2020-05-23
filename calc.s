@@ -3,12 +3,13 @@ section .bss
     buffer: resb 81 ; The input buffer - 81 bc \n is also saved 
 
 section .rodata
-    printNumberFormat: db "%d", 10, 0
+    newLine: db 10, 0 ; '\n'
+    printNumberFormat: db "%d", 0
     printStringFormat: db "%s", 10, 0	; format string
 
     calcMsg: db "calc: ", 0
-    overflowMsg: db "Error: Operand Stack Overflow"
-    illegalPop: db "Error: Insufficient Number of Arguments on Stack", 0
+    overflowMsg: db "Error: Operand Stack Overflow", 10, 0
+    illegalPop: db "Error: Insufficient Number of Arguments on Stack", 10, 0
     
     NODEVALUE: equ 0 ; Offset of the value byte from the beginning of a node
     NEXTNODE: equ 1 ; Offset of the next-node field (4 bytes) from the beginning of a node
@@ -17,6 +18,7 @@ section .data
     debug: db 0
     stackSize: db 5 ; Operand stack size (default: 5. Min: 2, Max: 0xFF)
     itemsInStack: db 0 ; Current items in stack (start value: 0)
+    operationsPerformed: dd 0 ; dword
 
 section .text                    	
     align 16
@@ -28,17 +30,18 @@ section .text
     extern calloc 
     extern free 
     extern getchar 
-    extern fgets 
+    extern fgets
+    extern stdout
  
-
-%macro print 2 
-    pushad
-    mov ebx, 1
-    mov ecx, %1
-    mov edx, %2
-    mov eax, 4
-    int 0x80
-    popad
+%macro print 1
+pushad
+push %1
+call printf
+add esp, 4
+push dword [stdout]
+call fflush
+add esp, 4
+popad
 %endmacro
 
 ; Call a function WHICH DOESN'T EXPECT ANY PARAMETERS, automatically backing up all registers except eax
@@ -91,6 +94,14 @@ call free
 add esp, 4
 %endmacro
 
+%macro freeLinkedListAt 1
+pushad
+push %1
+call freeLinkedList
+add esp, 4
+popad
+%endmacro
+
 ; Convert the word %1 containing a hex digit string representation to its value
 ; and move it to %2.
 %macro pushValue 2
@@ -105,6 +116,8 @@ pop eax
 %endmacro
 
 main:
+    mov ebp, esp
+
     ; Process command line arguments (all optional): "-d" or stackSize
     mov ecx, [esp+4] ; ecx = argc
     mov ebx, [esp+8] ; ebx = argv
@@ -135,15 +148,19 @@ main:
             loop parseArgument, ecx ; Decrement ecx and if ecx != 0, jump to the label
 
     ; Call the primary loop
-    callMyCalc: call myCalc
+    callMyCalc: callReturn myCalc
     ; Print number of operations performed
     ; Assuming operations performed is in eax
+    pushad
     push eax
     push printNumberFormat
     call printf
+    add esp, 8
+    popad
+    print newLine
 
     finishProgram:
-        add esp, 8
+        mov esp, ebp
         mov eax, 0 ; Program exit code
         ret
 
@@ -158,7 +175,7 @@ myCalc:
     mov dword[stack], eax ; eax has the pointer to the start of the stack
 
     calcLoop:
-        print calcMsg, 6
+        print calcMsg
         pushReturn
         mov eax, 3 ; lines 82-86 reads the input to the buffer - eax has the number of bytes that have been recived - the input is valid no need to check
         mov ebx, 0
@@ -169,7 +186,7 @@ myCalc:
 
         cmp byte [debug], 1
         jne calcCallOperation
-        print [buffer], eax
+        print buffer
 
         calcCallOperation:
         dec eax ; length of the char without the \n
@@ -179,7 +196,7 @@ myCalc:
         cmp byte [buffer], '+'
         ;je 
         cmp byte [buffer], 'p'
-        ;je 
+        je popAndPrint
         cmp byte [buffer], 'd'
         je duplicateHeadOfStack
         cmp byte [buffer], '&'
@@ -199,8 +216,88 @@ myCalc:
 
     endCalcLoop:
         freeStack
-        mov eax, [itemsInStack] ; TODO: we need to return the number of operations performed, not current items in stack
+        mov eax, [operationsPerformed]
         ret
+
+popAndPrint:
+    mov ebp, esp
+    callReturn popNodeFromOperandStack
+    cmp eax, 0 ; Popping node from operand stack failed
+    je popAndPrintEnd
+    mov ebx, eax ; ebx = The popped node
+
+    pushad
+    push ebx
+    call popAndPrintRecursion
+    add esp, 4
+    popad
+    
+    print newLine
+    freeLinkedListAt ebx
+    
+    popAndPrintEnd:
+        mov esp, ebp
+        jmp calcLoop
+
+popAndPrintRecursion:
+    mov ebp, esp
+    push dword 0 ; Will be the value to print
+    
+    mov ebx, [ebp+4]
+    mov cx, [ebx + NODEVALUE]
+    mov edx, [ebx + NEXTNODE]
+    cmp edx, 0
+    je lastPopAndPrintRecursion
+
+    pushReturn
+    push edx
+    call popAndPrintRecursion
+    add esp, 4
+    popReturn
+
+    printNode:
+        pushReturn
+        push cx
+        call byteToHexString
+        add esp, 2
+        popReturn
+        
+        and eax, 0x0000FFFF
+        mov [ebp-4], eax
+        mov edx, ebp
+        sub edx, 4
+        print edx
+    
+    mov esp, ebp
+    ret
+
+    lastPopAndPrintRecursion:
+        pushReturn
+        push cx
+        call byteToHexString
+        add esp, 2
+        popReturn
+
+        and eax, 0x0000FFFF
+        cmp al, 0x30 ; A leading zero
+        je printLowerCharOfValue
+        
+        mov [ebp-4], eax
+        mov edx, ebp
+        sub edx, 4
+        print edx
+        jmp lastPopAndPrintRecursionEnd
+        
+        printLowerCharOfValue:
+            shr eax, 8
+            mov [ebp-4], eax
+            mov edx, ebp
+            sub edx, 4
+            print edx
+        
+        lastPopAndPrintRecursionEnd:
+            mov esp, ebp
+            ret
 
 duplicateHeadOfStack:
     mov ebp, esp
@@ -337,11 +434,7 @@ bitwiseOr:
 ;             numberOfHexDigitsAdd 1
 
 ;     ; Free the popped linked list
-;     pushad
-;     push edx
-;     call freeLinkedList
-;     add esp, 4
-;     popad
+;     freeLinkedListAt edx
 
 ;     numberOfHexDigitsEnd:
 ;         mov esp, ebp
@@ -447,6 +540,37 @@ hexCharToValue:
     sub al, 0x7 ; Correct according to offset in ascii table
     returnCharValue: ret
 
+; Get a byte of data and return a hexadecimal digit string representing it.
+; Result stored in ax.
+byteToHexString:
+    mov ebp, esp
+
+    mov dx, [esp+4]
+    push dx
+    call nibbleToHexChar
+    mov ch, al
+
+    shr dx, 4
+    push dx
+    call nibbleToHexChar
+    mov cl, al
+
+    mov ax, cx
+    mov esp, ebp
+    ret
+
+; Get a nibble (4 bits) of data and return a hexadecimal char string representing it.
+; Result stored in al.
+nibbleToHexChar:
+    mov al, [esp+4]
+    and al, 0x0F
+    cmp al, 0xA
+    jl addDecimalAsciiOffset
+    add al, 0x7
+    addDecimalAsciiOffset:
+    add al, 0x30
+    ret
+
 ; Allocate memory for a node and put its address in eax.
 createNode:
     push dword 1 ;size
@@ -509,11 +633,11 @@ unsafeCreateNodeOnOperandStack:
 ; Returns 1 in eax in case of success, and 0 in case of failure.
 pushNodeToOperandStack:
     ; Check if stack is full
-    mov eax, [itemsInStack]
-    cmp [stackSize], eax
+    mov eax, 0 ; Reset register
+    mov al, [itemsInStack]
+    cmp [stackSize], al
     jne unsafePushNode
-    push overflowMsg
-    call printf
+    print overflowMsg
     mov eax, 0
     ret
 
@@ -573,7 +697,7 @@ popNodeFromOperandStack:
 
     popNodeFromOperandStackError:
     mov eax, 0
-    print illegalPop, 48
+    print illegalPop
 
     popNodeFromOperandStackEnd:
     popReturn
