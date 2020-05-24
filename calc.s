@@ -115,6 +115,10 @@ mov %2, al
 pop eax
 %endmacro
 
+%macro updateCounter 0
+inc [operationsPerformed]
+%endmacro
+
 main:
     mov ebp, esp
 
@@ -194,13 +198,13 @@ myCalc:
         cmp byte [buffer], 'q'
         je endCalcLoop
         cmp byte [buffer], '+'
-        ;je 
+        je sum 
         cmp byte [buffer], 'p'
         je popAndPrint
         cmp byte [buffer], 'd'
         je duplicateHeadOfStack
         cmp byte [buffer], '&'
-        ;je 
+        je bitwiseAnd
         cmp byte [buffer], '|'
         je bitwiseOr
         cmp byte [buffer], 'n'
@@ -702,3 +706,103 @@ popNodeFromOperandStack:
     popNodeFromOperandStackEnd:
     popReturn
     ret
+
+;X&Y with X being the top of operand stack and Y the element next to x in the operand stack.
+bitwiseAnd:
+    mov ebp, esp
+    push ebp ; Backup
+    call popTwoItemsFromStack
+    pop ebp
+    cmp eax, 0
+    je bitwiseAndEnd
+
+    mov ecx, eax
+    ; ebx = X, ecx = Y
+    callReturn createNodeOnOperandStack ; Must succeed, we've just popped 2 items
+    bitwiseAndLoop:
+        ; eax = New node
+    ; edx = temporary register
+        mov dl, [ebx + NODEVALUE]
+        mov [eax + NODEVALUE], dl
+        mov dl, [ecx + NODEVALUE]
+        and [eax + NODEVALUE], dl
+
+        mov ebx, [ebx + NEXTNODE]
+        mov ecx, [ecx + NEXTNODE]
+        
+        cmp ebx, 0
+        je bitwiseAndEnd
+
+        cmp ecx, 0
+        je bitwiseAndEnd
+
+        mov edx, eax
+        callReturn createNode
+        mov [edx + NEXTNODE], eax
+        jmp bitwiseAndLoop
+
+    bitwiseAndEnd:
+        mov esp, ebp
+        jmp calcLoop    
+
+sum:
+    mov ebp, esp
+    push ebp ; Backup
+    call popTwoItemsFromStack
+    pop ebp
+    cmp eax, 0
+    je sumEnd
+
+    mov ecx, eax
+    ; ebx = X, ecx = Y
+    callReturn createNodeOnOperandStack
+    add byte [eax + NODEVALUE], 0 ; reset the CF value
+    sumLoop:
+        mov dl,[ebx + NODEVALUE]
+        mov [eax + NODEVALUE], dl
+        mov dl, [ecx + NODEVALUE]
+        adc [eax + NODEVALUE], dl
+
+        mov ebx, [ebx + NEXTNODE]
+        mov ecx, [ecx + NEXTNODE]
+
+        cmp ebx, 0
+        mov edx, ecx
+        je sumRest
+
+        cmp ecx, 0
+        mov edx, ebx
+        je sumRest
+
+        mov edx, eax
+        callReturn createNode
+        mov [edx + NEXTNODE], eax
+
+        jmp sumLoop
+
+        sumRest: ;edx now has the other var
+            cmp edx, 0 ;both x, y are done
+            je lastCarry
+
+            lastSumLoop:;loop till edx is empty
+                cmp edx, 0
+                je lastCarry
+                mov ecx, eax
+                callReturn createNode
+                mov [ecx + NEXTNODE], eax
+
+                mov cl, [edx + NODEVALUE]
+                adc [eax + NODEVALUE], cl
+                mov edx, [edx + NEXTNODE]
+                jmp lastSumLoop
+
+            lastCarry:
+                jnc sumEnd ; checking if we have carry to add
+                mov edx, eax
+                callReturn createNode
+                mov [edx + NEXTNODE], eax
+                adc byte [eax + NODEVALUE], 0
+        
+    sumEnd:
+        mov esp, ebp
+        jmp calcLoop
