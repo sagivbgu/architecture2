@@ -196,27 +196,46 @@ myCalc:
         dec eax ; length of the char without the \n
 
         cmp byte [buffer], 'q'
-        je endCalcLoop
-        cmp byte [buffer], '+'
-        je sum 
-        cmp byte [buffer], 'p'
-        je popAndPrint
-        cmp byte [buffer], 'd'
-        je duplicateHeadOfStack
-        cmp byte [buffer], '&'
-        je bitwiseAnd
-        cmp byte [buffer], '|'
-        je bitwiseOr
-        cmp byte [buffer], 'n'
-        ;je numberOfHexDigits
-        cmp byte [buffer], '*'
-        ;je 
+            jne checkPlus
+            jmp endCalcLoop
+        
+        checkPlus: cmp byte [buffer], '+'
+            jne checkP
+            callReturn sum
+            jmp calcLoop
+        
+        checkP: cmp byte [buffer], 'p'
+            jne checkD
+            callReturn popAndPrint
+            jmp calcLoop
+
+        checkD: cmp byte [buffer], 'd'
+            jne checkAnd
+            callReturn duplicateHeadOfStack
+            jmp calcLoop
+
+        checkAnd: cmp byte [buffer], '&'
+            jne checkOr
+            callReturn bitwiseAnd
+            jmp calcLoop
+
+        checkOr: cmp byte [buffer], '|'
+            jne checkN
+            callReturn bitwiseOr
+            jmp calcLoop
+
+        checkN: cmp byte [buffer], 'n'
+            jne checkNumber
+            callReturn numberOfHexDigits
+            jmp calcLoop
+
         ;its a number so we need to parse it
-        push eax
-        call pushHexStringNumber
-        add esp, 4
-        ;add to the stack
-        jmp calcLoop
+        checkNumber:
+            push eax
+            call pushHexStringNumber
+            add esp, 4
+            ;add to the stack
+            jmp calcLoop
 
     endCalcLoop:
         freeStack
@@ -243,7 +262,7 @@ popAndPrint:
     
     popAndPrintEnd:
         mov esp, ebp
-        jmp calcLoop
+        ret
 
 popAndPrintRecursion:
     mov ebp, esp
@@ -342,7 +361,7 @@ duplicateHeadOfStack:
 
     duplicateHeadOfStackEnd:
         mov esp, ebp
-        jmp calcLoop
+        ret
 
 ; X|Y with X being the top of operand stack and Y the element next to x in the operand stack.
 bitwiseOr:
@@ -401,54 +420,54 @@ bitwiseOr:
 
     bitwiseOrEnd:
         mov esp, ebp
-        jmp calcLoop
+        ret
 
 ; For internal use of numberOfHexDigits
-; %macro numberOfHexDigitsAdd 1
-; callReturn unsafeCreateNodeOnOperandStack
-; mov byte [eax + NODEVALUE], %1
-; call add ; TODO: To be implemented
-; %endmacro
+%macro numberOfHexDigitsAdd 1
+callReturn unsafeCreateNodeOnOperandStack
+mov byte [eax + NODEVALUE], %1
+callReturn sum
+%endmacro
 
 ; Number of hexadecimal digits functionallity
-; numberOfHexDigits:
-;     mov ebp, esp
-;     updateCounter
+numberOfHexDigits:
+    mov ebp, esp
+    updateCounter
 
-;     callReturn popNodeFromOperandStack
-;     cmp eax, 0 ; Popping node from operand stack failed
-;     je numberOfHexDigitsEnd
-;     mov edx, eax ; edx = Popped node (backup)
-;     mov ebx, eax ; ebx = Popped node (for looping)
+    callReturn popNodeFromOperandStack
+    cmp eax, 0 ; Popping node from operand stack failed
+    je numberOfHexDigitsEnd
+    mov edx, eax ; edx = Popped node (backup)
+    mov ebx, eax ; ebx = Popped node (for looping)
 
-;     callReturn createNodeOnOperandStack ; Must succeed, because we've just popped an item
-;     ; New node initialized on stack with value 0
+    callReturn createNodeOnOperandStack ; Must succeed, because we've just popped an item
+    ; New node initialized on stack with value 0
 
-;     numberOfHexDigitsLoop:
-;         cmp dword [ebx + NEXTNODE], 0
-;         je numberOfHexDigitsLastLoop
+    numberOfHexDigitsLoop:
+        cmp dword [ebx + NEXTNODE], 0
+        je numberOfHexDigitsLastLoop
         
-;         numberOfHexDigitsAdd 2
+        numberOfHexDigitsAdd 2
 
-;         mov ebx, [ebx + NEXTNODE]
-;         cmp ebx, 0
-;         jne numberOfHexDigitsLoop
+        mov ebx, [ebx + NEXTNODE]
+        cmp ebx, 0
+        jne numberOfHexDigitsLoop
 
-;     numberOfHexDigitsLastLoop:
-;         cmp byte [ebx + NODEVALUE], 0x10
-;         jl addOneToNumberOfHexDigits
+    numberOfHexDigitsLastLoop:
+        cmp byte [ebx + NODEVALUE], 0x10
+        jl addOneToNumberOfHexDigits
 
-;         numberOfHexDigitsAdd 1
+        numberOfHexDigitsAdd 1
         
-;         addOneToNumberOfHexDigits:
-;             numberOfHexDigitsAdd 1
+        addOneToNumberOfHexDigits:
+            numberOfHexDigitsAdd 1
 
-;     ; Free the popped linked list
-;     freeLinkedListAt edx
+    ; Free the popped linked list
+    ;freeLinkedListAt edx ; TODO - uncomment
 
-;     numberOfHexDigitsEnd:
-;         mov esp, ebp
-;         jmp calcLoop
+    numberOfHexDigitsEnd:
+        mov esp, ebp
+        ret
 
 ; Get the number of bytes to read from the buffer, assuming it's a string representing a hex number.
 ; Convert the string to its numeric value and push it to the operand stack.
@@ -653,6 +672,10 @@ pushNodeToOperandStack:
 
     ; Push to the stack
     unsafePushNode:
+    ; Next 2 lines are duplicated so unsafePushNode will be able to be called independently
+    mov eax, 0 ; Reset register
+    mov al, [itemsInStack]
+
     mov ebx, [esp+4]
     mov ecx, [stack]
     mov [ecx + 4 * eax], ebx
@@ -755,7 +778,7 @@ bitwiseAnd:
 
     bitwiseAndEnd:
         mov esp, ebp
-        jmp calcLoop    
+        ret    
 
 sum:
     mov ebp, esp
@@ -819,4 +842,4 @@ sum:
         
     sumEnd:
         mov esp, ebp
-        jmp calcLoop
+        ret
