@@ -32,6 +32,7 @@ section .text
     extern getchar 
     extern fgets
     extern stdout
+    extern stderr
  
 %macro print 1
 pushad
@@ -39,6 +40,17 @@ push %1
 call printf
 add esp, 4
 push dword [stdout]
+call fflush
+add esp, 4
+popad
+%endmacro
+
+%macro print 2
+pushad
+push %1
+call printf
+add esp, 4
+push dword %2
 call fflush
 add esp, 4
 popad
@@ -75,17 +87,14 @@ popad
     pushad
     mov ebx, stack
     freeLoop:
-        cmp ebx, 0 ;comparing with null - if its equal we let them go (finally)
+        cmp byte [itemsInStack], 0
         je endFreeLoop
-        mov eax, ebx
-        add eax, 4 ;points to the next node
-        freeNum ebx
-        mov ebx, eax ;now ebx points to the next node
+        callReturn popNodeFromOperandStack
+        freeLinkedListAt eax
+        jmp freeLoop
     endFreeLoop:
+    freeNode [stack]
     popad
-%endmacro
-
-%macro freeNum 1 ; gets address
 %endmacro
 
 %macro freeNode 1
@@ -117,6 +126,46 @@ pop eax
 
 %macro updateCounter 0
 add dword [operationsPerformed], 1
+%endmacro
+
+%macro bufferSwitchToNull 0
+    pushad
+    mov esi, buffer
+    %%loopNull:
+        cmp byte [esi], 10
+        je %%endNullLoop
+        add esi, 1
+        jmp %%loopNull
+    %%endNullLoop:
+    mov byte [esi], 00 
+    popad
+%endmacro
+
+%macro printDebug 1
+    pushad
+    push dword %1
+    push dword printStringFormat
+    push dword [stderr]
+    call fprintf
+    add esp, 12
+    push dword [stderr]
+    call fflush
+    add esp, 4
+    popad
+%endmacro
+
+%macro printDebugResult 0
+    pushad
+    mov ebx, [stack]
+    mov edx, 0
+    mov dl, [itemsInStack]
+    dec dl
+    push dword [stderr]
+    push dword [ebx + edx * 4]
+    call popAndPrintRecursion
+    add esp, 8
+    print newLine, [stderr]
+    popad
 %endmacro
 
 main:
@@ -188,9 +237,7 @@ myCalc:
         int 0x80 
         popReturn
 
-        cmp byte [debug], 1
-        jne calcCallOperation
-        print buffer
+        bufferSwitchToNull 
 
         calcCallOperation:
         dec eax ; length of the char without the \n
@@ -252,9 +299,10 @@ popAndPrint:
     mov ebx, eax ; ebx = The popped node
 
     pushad
+    push dword [stdout]
     push ebx
     call popAndPrintRecursion
-    add esp, 4
+    add esp, 8
     popad
     
     print newLine
@@ -275,9 +323,10 @@ popAndPrintRecursion:
     je lastPopAndPrintRecursion
 
     pushReturn
+    push dword [ebp+8]
     push edx
     call popAndPrintRecursion
-    add esp, 4
+    add esp, 8
     popReturn
 
     printNode:
@@ -291,7 +340,7 @@ popAndPrintRecursion:
         mov [ebp-4], eax
         mov edx, ebp
         sub edx, 4
-        print edx
+        print edx, [ebp+8]
     
     mov esp, ebp
     ret
@@ -310,7 +359,7 @@ popAndPrintRecursion:
         mov [ebp-4], eax
         mov edx, ebp
         sub edx, 4
-        print edx
+        print edx, [ebp+8]
         jmp lastPopAndPrintRecursionEnd
         
         printLowerCharOfValue:
@@ -318,7 +367,7 @@ popAndPrintRecursion:
             mov [ebp-4], eax
             mov edx, ebp
             sub edx, 4
-            print edx
+            print edx, [ebp+8]
         
         lastPopAndPrintRecursionEnd:
             mov esp, ebp
@@ -417,7 +466,7 @@ bitwiseOr:
         
         mov ecx, [ecx + NEXTNODE]
         jmp bitwiseOrFinalLoop
-
+    
     bitwiseOrEnd:
         mov esp, ebp
         ret
@@ -474,6 +523,11 @@ numberOfHexDigits:
 pushHexStringNumber:
     mov ebp, esp
 
+    cmp byte [debug], 1
+    jne notDebug
+    printDebug buffer
+
+    notDebug:
     callReturn createNodeOnOperandStack
     cmp eax, 0 ; Creating node on operand stack failed
     je pushHexStringNumberEnd
@@ -784,6 +838,7 @@ sum:
     mov ebp, esp
     updateCounter
 
+    add esp, 8
     push ebp ; Backup
     call popTwoItemsFromStack
     pop ebp
@@ -791,6 +846,9 @@ sum:
     je sumEnd
 
     mov ecx, eax
+    ; so we can free both of these nodes
+    mov [ebp+4], ecx
+    mov [ebp+8], ebx
     ; ebx = X, ecx = Y
     callReturn createNodeOnOperandStack
     add byte [eax + NODEVALUE], 0 ; reset the CF value
@@ -834,12 +892,16 @@ sum:
                 jmp lastSumLoop
 
             lastCarry:
-                jnc sumEnd ; checking if we have carry to add
+                jnc sumEndFree ; checking if we have carry to add
                 mov edx, eax
                 callReturn createNode
                 mov [edx + NEXTNODE], eax
                 adc byte [eax + NODEVALUE], 0
+                
         
+    sumEndFree:
+    freeLinkedListAt dword [ebp+4]
+    freeLinkedListAt dword [ebp+8]
     sumEnd:
-        mov esp, ebp
-        ret
+    mov esp, ebp
+    ret
