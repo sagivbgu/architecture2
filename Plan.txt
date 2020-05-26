@@ -62,10 +62,9 @@ Note from the assignment description:
     content of stdin as argument into stack - push dword [stdin]) 
 
 Schedule:
-    And -> Zohar
-    Add -> Zohar
     Number of hexadecimal digits ("n" option) -> Sagiv
     
-    Print operations performed -> Sagiv
     Debug prints -> Sagiv & Zohar
+        print out every number read from the user,
+        and every result pushed onto the operand stack
     Prevent memory leaks -> Sagiv & Zohar

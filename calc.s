@@ -116,7 +116,7 @@ pop eax
 %endmacro
 
 %macro updateCounter 0
-inc [operationsPerformed]
+add dword [operationsPerformed], 1
 %endmacro
 
 main:
@@ -225,6 +225,8 @@ myCalc:
 
 popAndPrint:
     mov ebp, esp
+    updateCounter
+    
     callReturn popNodeFromOperandStack
     cmp eax, 0 ; Popping node from operand stack failed
     je popAndPrintEnd
@@ -305,6 +307,7 @@ popAndPrintRecursion:
 
 duplicateHeadOfStack:
     mov ebp, esp
+    updateCounter
 
     callReturn popNodeFromOperandStack
     cmp eax, 0 ; Popping node from operand stack failed
@@ -344,6 +347,8 @@ duplicateHeadOfStack:
 ; X|Y with X being the top of operand stack and Y the element next to x in the operand stack.
 bitwiseOr:
     mov ebp, esp
+    updateCounter
+
     push ebp ; Backup
     call popTwoItemsFromStack
     pop ebp
@@ -408,6 +413,7 @@ bitwiseOr:
 ; Number of hexadecimal digits functionallity
 ; numberOfHexDigits:
 ;     mov ebp, esp
+;     updateCounter
 
 ;     callReturn popNodeFromOperandStack
 ;     cmp eax, 0 ; Popping node from operand stack failed
@@ -684,17 +690,21 @@ popTwoItemsFromStack:
 
 popNodeFromOperandStack:
     pushReturn
-    mov edx, [itemsInStack]
+    mov edx, 0 ; Reset register
+    mov dl, [itemsInStack]
     cmp edx, 0
     je popNodeFromOperandStackError
 
     dec edx ; index starts at 0
     mov ebx, [stack]
-    mov ecx, [ebx + edx * 4] ;ecx has the pointer to the last node  
-    mov eax, 4
-    mul edx
-    add ebx, eax
-    mov dword[ebx] ,0 ;the last place has null now
+    mov ecx, [ebx + edx * 4] ;ecx has the pointer to the last node
+    
+    mov dword [ebx + edx * 4] , 0
+    ; mov eax, 4
+    ; mul edx
+    ; add ebx, eax
+    ; mov dword[ebx] ,0 ;the last place has null now
+    
     mov eax, ecx
     dec byte [itemsInStack]
     jmp popNodeFromOperandStackEnd
@@ -710,6 +720,8 @@ popNodeFromOperandStack:
 ;X&Y with X being the top of operand stack and Y the element next to x in the operand stack.
 bitwiseAnd:
     mov ebp, esp
+    updateCounter
+
     push ebp ; Backup
     call popTwoItemsFromStack
     pop ebp
@@ -747,6 +759,8 @@ bitwiseAnd:
 
 sum:
     mov ebp, esp
+    updateCounter
+
     push ebp ; Backup
     call popTwoItemsFromStack
     pop ebp
