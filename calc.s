@@ -16,6 +16,7 @@ section .rodata
 
 section .data
     debug: db 0
+    sumN: db 0
     stackSize: db 5 ; Operand stack size (default: 5. Min: 2, Max: 0xFF)
     itemsInStack: db 0 ; Current items in stack (start value: 0)
     operationsPerformed: dd 0 ; dword
@@ -166,6 +167,12 @@ add dword [operationsPerformed], 1
     add esp, 8
     print newLine, [stderr]
     popad
+%endmacro
+
+%macro endOperation 1
+    cmp byte [debug], 1
+    jne %1
+    printDebugResult
 %endmacro
 
 main:
@@ -401,13 +408,15 @@ duplicateHeadOfStack:
         
         mov ebx, [ebx + NEXTNODE]
         cmp ebx, 0
-        je duplicateHeadOfStackEnd
+        je duplicateHeadOfStackEndDebug
         
         callReturn createNode
         mov [edx + NEXTNODE], eax
         mov edx, eax
         jmp duplicateHeadOfStackLoop
-
+    
+    duplicateHeadOfStackEndDebug:
+        endOperation duplicateHeadOfStackEnd
     duplicateHeadOfStackEnd:
         mov esp, ebp
         ret
@@ -455,7 +464,7 @@ bitwiseOr:
 
     bitwiseOrFinalLoop:
         cmp ecx, 0
-        je bitwiseOrEnd
+        je bitwiseOrEndFree
 
         mov edx, eax
         callReturn createNode
@@ -467,6 +476,9 @@ bitwiseOr:
         mov ecx, [ecx + NEXTNODE]
         jmp bitwiseOrFinalLoop
     
+    bitwiseOrEndFree:
+        ; TODO free both popped nodes
+        endOperation bitwiseOrEnd
     bitwiseOrEnd:
         mov esp, ebp
         ret
@@ -475,7 +487,10 @@ bitwiseOr:
 %macro numberOfHexDigitsAdd 1
 callReturn unsafeCreateNodeOnOperandStack
 mov byte [eax + NODEVALUE], %1
+mov byte [sumN], 1
 callReturn sum
+mov byte [sumN], 0
+dec dword [operationsPerformed]
 %endmacro
 
 ; Number of hexadecimal digits functionallity
@@ -513,7 +528,7 @@ numberOfHexDigits:
 
     ; Free the popped linked list
     ;freeLinkedListAt edx ; TODO - uncomment
-
+    endOperation numberOfHexDigitsEnd
     numberOfHexDigitsEnd:
         mov esp, ebp
         ret
@@ -777,10 +792,6 @@ popNodeFromOperandStack:
     mov ecx, [ebx + edx * 4] ;ecx has the pointer to the last node
     
     mov dword [ebx + edx * 4] , 0
-    ; mov eax, 4
-    ; mul edx
-    ; add ebx, eax
-    ; mov dword[ebx] ,0 ;the last place has null now
     
     mov eax, ecx
     dec byte [itemsInStack]
@@ -820,16 +831,19 @@ bitwiseAnd:
         mov ecx, [ecx + NEXTNODE]
         
         cmp ebx, 0
-        je bitwiseAndEnd
+        je bitwiseAndEndFree
 
         cmp ecx, 0
-        je bitwiseAndEnd
+        je bitwiseAndEndFree
 
         mov edx, eax
         callReturn createNode
         mov [edx + NEXTNODE], eax
         jmp bitwiseAndLoop
-
+    
+    bitwiseAndEndFree:
+        ;needs to release memory
+        endOperation bitwiseAndEnd
     bitwiseAndEnd:
         mov esp, ebp
         ret    
@@ -838,7 +852,7 @@ sum:
     mov ebp, esp
     updateCounter
 
-    add esp, 8
+    ;add esp, 8
     push ebp ; Backup
     call popTwoItemsFromStack
     pop ebp
@@ -847,8 +861,8 @@ sum:
 
     mov ecx, eax
     ; so we can free both of these nodes
-    mov [ebp+4], ecx
-    mov [ebp+8], ebx
+    ;mov [ebp+4], ecx
+    ;mov [ebp+8], ebx
     ; ebx = X, ecx = Y
     callReturn createNodeOnOperandStack
     add byte [eax + NODEVALUE], 0 ; reset the CF value
@@ -900,8 +914,11 @@ sum:
                 
         
     sumEndFree:
-    freeLinkedListAt dword [ebp+4]
-    freeLinkedListAt dword [ebp+8]
+        ;freeLinkedListAt dword [ebp+4]
+        ;freeLinkedListAt dword [ebp+8]
+        cmp byte [sumN], 1
+        je sumEnd
+        endOperation sumEnd
     sumEnd:
-    mov esp, ebp
-    ret
+        mov esp, ebp
+        ret
