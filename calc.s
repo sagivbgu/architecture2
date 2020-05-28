@@ -20,6 +20,9 @@ section .data
     stackSize: db 5 ; Operand stack size (default: 5. Min: 2, Max: 0xFF)
     itemsInStack: db 0 ; Current items in stack (start value: 0)
     operationsPerformed: dd 0 ; dword
+    nodeToFree: dd 0 ;ptr
+    nodeToFree2: dd 0 ;ptr
+    
 
 section .text                    	
     align 16
@@ -434,6 +437,9 @@ bitwiseOr:
 
     mov ecx, eax
     ; ebx = X, ecx = Y
+    mov [nodeToFree], ecx
+    mov [nodeToFree2], ebx
+
     callReturn createNodeOnOperandStack ; Must succeed, we've just popped 2 items
     bitwiseOrLoop:
     ; eax = New node
@@ -477,7 +483,8 @@ bitwiseOr:
         jmp bitwiseOrFinalLoop
     
     bitwiseOrEndFree:
-        ; TODO free both popped nodes
+        freeLinkedListAt dword [nodeToFree]
+        freeLinkedListAt dword [nodeToFree2]
         endOperation bitwiseOrEnd
     bitwiseOrEnd:
         mov esp, ebp
@@ -818,6 +825,9 @@ bitwiseAnd:
 
     mov ecx, eax
     ; ebx = X, ecx = Y
+    mov [nodeToFree], ecx
+    mov [nodeToFree2], ebx
+
     callReturn createNodeOnOperandStack ; Must succeed, we've just popped 2 items
     bitwiseAndLoop:
         ; eax = New node
@@ -842,7 +852,8 @@ bitwiseAnd:
         jmp bitwiseAndLoop
     
     bitwiseAndEndFree:
-        ;needs to release memory
+        freeLinkedListAt dword [nodeToFree]
+        freeLinkedListAt dword [nodeToFree2]
         endOperation bitwiseAndEnd
     bitwiseAndEnd:
         mov esp, ebp
@@ -861,8 +872,8 @@ sum:
 
     mov ecx, eax
     ; so we can free both of these nodes
-    ;mov [ebp+4], ecx
-    ;mov [ebp+8], ebx
+    mov [nodeToFree], ecx
+    mov [nodeToFree2], ebx
     ; ebx = X, ecx = Y
     callReturn createNodeOnOperandStack
     add byte [eax + NODEVALUE], 0 ; reset the CF value
@@ -914,8 +925,8 @@ sum:
                 
         
     sumEndFree:
-        ;freeLinkedListAt dword [ebp+4]
-        ;freeLinkedListAt dword [ebp+8]
+        freeLinkedListAt dword [nodeToFree]
+        freeLinkedListAt dword [nodeToFree2]
         cmp byte [sumN], 1
         je sumEnd
         endOperation sumEnd
