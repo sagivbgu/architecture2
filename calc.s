@@ -494,10 +494,10 @@ bitwiseOr:
 %macro numberOfHexDigitsAdd 1
 callReturn unsafeCreateNodeOnOperandStack
 mov byte [eax + NODEVALUE], %1
-mov byte [sumN], 1
+mov byte [sumN], 1 ;turn on the flag so it won't print in debug the sum
 callReturn sum
-mov byte [sumN], 0
-dec dword [operationsPerformed]
+mov byte [sumN], 0 ;turn off the flag
+dec dword [operationsPerformed] ; sum op. wont count
 %endmacro
 
 ; Number of hexadecimal digits functionallity
@@ -511,6 +511,7 @@ numberOfHexDigits:
     mov edx, eax ; edx = Popped node (backup)
     mov ebx, eax ; ebx = Popped node (for looping)
 
+    mov [nodeToFree], edx
     callReturn createNodeOnOperandStack ; Must succeed, because we've just popped an item
     ; New node initialized on stack with value 0
 
@@ -535,7 +536,8 @@ numberOfHexDigits:
 
     ; Free the popped linked list
     ;freeLinkedListAt edx ; TODO - uncomment
-    endOperation numberOfHexDigitsEnd
+    freeLinkedListAt dword [nodeToFree]
+    endOperation numberOfHexDigitsEnd ;for debug
     numberOfHexDigitsEnd:
         mov esp, ebp
         ret
@@ -555,7 +557,7 @@ pushHexStringNumber:
     je pushHexStringNumberEnd
 
     mov edx, eax ; edx = Address of the new node
-
+    
     pushHexStringNumberStart:
     callReturn countLeadingZeros ; now eax = number of leading zeros
     
