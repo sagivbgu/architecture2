@@ -5,6 +5,7 @@ section .bss
 section .rodata
     newLine: db 10, 0 ; '\n'
     printNumberFormat: db "%d", 0
+    printNumberHexFormat: db "%X", 0
     printStringFormat: db "%s", 10, 0	; format string
 
     calcMsg: db "calc: ", 0
@@ -216,7 +217,7 @@ main:
     ; Assuming operations performed is in eax
     pushad
     push eax
-    push printNumberFormat
+    push printNumberHexFormat
     call printf
     add esp, 8
     popad
@@ -719,6 +720,7 @@ createNodeOnOperandStack:
 
     createNodeOnOperandStackFailure:
     freeNode edx
+    mov eax, 0
     ret
 
 ; Create a new node and push it to the end of operand stack.
@@ -877,54 +879,57 @@ sum:
     mov [nodeToFree2], ebx
     ; ebx = X, ecx = Y
     callReturn createNodeOnOperandStack
-    add byte [eax + NODEVALUE], 0 ; reset the CF value
+    clc ; reset the CF value
+    pushfd
+    mov edx, 0 ;reset edx
     sumLoop:
-        mov dl,[ebx + NODEVALUE]
-        mov [eax + NODEVALUE], dl
-        mov dl, [ecx + NODEVALUE]
-        adc [eax + NODEVALUE], dl
-
+        popfd
+        mov byte dl,[ebx + NODEVALUE]
+        mov byte [eax + NODEVALUE], dl
+        mov byte dl,[ecx + NODEVALUE]
+        adc byte [eax + NODEVALUE], dl
+        pushfd
+        
         mov ebx, [ebx + NEXTNODE]
         mov ecx, [ecx + NEXTNODE]
 
-        cmp ebx, 0
         mov edx, ecx
+        cmp ebx, 0
         je sumRest
 
-        cmp ecx, 0
         mov edx, ebx
+        cmp ecx, 0
         je sumRest
 
-        mov edx, eax
+        mov edx, eax ;so we can save the new node value
         callReturn createNode
         mov [edx + NEXTNODE], eax
-
         jmp sumLoop
 
         sumRest: ;edx now has the other var
             cmp edx, 0 ;both x, y are done
             je lastCarry
-
-            lastSumLoop:;loop till edx is empty
-                cmp edx, 0
-                je lastCarry
+        
+            lastSumLoop: ;loop till edx is empty
                 mov ecx, eax
                 callReturn createNode
                 mov [ecx + NEXTNODE], eax
 
+                popfd
                 mov cl, [edx + NODEVALUE]
                 adc [eax + NODEVALUE], cl
                 mov edx, [edx + NEXTNODE]
-                jmp lastSumLoop
+                pushfd
+                jmp sumRest
 
             lastCarry:
+                popfd
                 jnc sumEndFree ; checking if we have carry to add
                 mov edx, eax
                 callReturn createNode
                 mov [edx + NEXTNODE], eax
-                adc byte [eax + NODEVALUE], 0
+                inc byte [eax + NODEVALUE]
                 
-        
     sumEndFree:
         freeLinkedListAt dword [nodeToFree]
         freeLinkedListAt dword [nodeToFree2]
