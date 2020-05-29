@@ -527,7 +527,7 @@ numberOfHexDigits:
 
     numberOfHexDigitsLastLoop:
         cmp byte [ebx + NODEVALUE], 0x10
-        jl addOneToNumberOfHexDigits
+        jb addOneToNumberOfHexDigits
 
         numberOfHexDigitsAdd 1
         
@@ -535,8 +535,7 @@ numberOfHexDigits:
             numberOfHexDigitsAdd 1
 
     ; Free the popped linked list
-    ;freeLinkedListAt edx ; TODO - uncomment
-    freeLinkedListAt dword [nodeToFree]
+    freeLinkedListAt edx
     endOperation numberOfHexDigitsEnd ;for debug
     numberOfHexDigitsEnd:
         mov esp, ebp
