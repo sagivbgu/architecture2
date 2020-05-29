@@ -1,0 +1,106 @@
+                    ---------
+                    | Tests |
+                    ---------
+
+************************************************
+* In all tests:                                *
+*     No memory leaks                          *
+*     Correct number of operations (in hexa)   *
+************************************************
+
+
+( X = pass )
+( F = fail )
+
+
+[ ]    Test from the assignment page
+[X]    sanity in different stack size
+[X]    Number of operations performed > 0xF
+[X]    Insertion to stack ignores leading zeros
+
+       ‘+’ – unsigned addition
+[ ]    sanity
+[ ]    Operands with same length
+[ ]    First operand longer than second
+[ ]    Second operand longer than first
+[ ]    First operand length is odd
+[ ]    Second operand length is odd
+[ ]    First operand length is even
+[ ]    Second operand length is even
+[ ]    No carry
+[ ]    With carry
+[ ]    0 + 0
+[ ]    something + 0
+[ ]    0 + something
+[ ]    Doesn't work when stack is empty
+[ ]    Works when stack is full
+[ ]    Result length > 80
+[ ]    Result length is even
+[ ]    Result length is odd
+[ ]    Some numbers are might be considered as negative, and some not (MSB=1 and MSB=0)
+
+       ‘p’ – pop-and-print
+[X]    sanity
+[F]    Handles more than 80 characters
+[X]    Result length is even
+[X]    Result length is odd
+[X]    Doesn't work when stack is empty
+[X]    Works when stack is full
+[X]    Number popped is 0
+
+       ‘d’ – duplicate
+[X]    sanity
+[ ]    Result length > 80
+[X]    Result length is even
+[X]    Result length is odd
+[X]    Doesn't duplicate when stack is full
+[X]    Doesn't duplicate when stack is empty
+[X]    Number duplicated is 0
+
+       ‘&’ - bitwise AND, X&Y with X being the top of operand stack
+       and Y the element next to x in the operand stack.
+[X]    sanity
+[X]    Operands with same length
+[X]    First operand longer than second
+[X]    Second operand longer than first
+[X]    First operand length is odd
+[X]    Second operand length is odd
+[X]    First operand length is even
+[X]    Second operand length is even
+[X]    0 & 0
+[X]    something & 0
+[X]    0 & something
+[X]    Doesn't work when stack is empty
+[X]    Works when stack is full
+[ ]    Result length > 80
+[X]    Result length is even
+[X]    Result length is odd
+
+       ‘|’ - bitwise OR, X|Y with X being the top of operand stack
+       and Y the element next to x in the operand stack.
+[X]    sanity
+[X]    Operands with same length
+[X]    First operand longer than second
+[X]    Second operand longer than first
+[X]    First operand length is odd
+[X]    Second operand length is odd
+[X]    First operand length is even
+[X]    Second operand length is even
+[X]    0 | 0
+[X]    something | 0
+[X]    0 | something
+[X]    Doesn't work when stack is empty
+[X]    Works when stack is full
+[ ]    Result length > 80
+[X]    Result length is even
+[X]    Result length is odd
+
+       ‘n’ – number of hexadecimal digits
+[X]    sanity
+[ ]    Handles more than 80 characters
+[X]    Leading 0
+[X]    Result length is even
+[X]    Result length is odd
+[X]    Doesn't work when stack is empty
+[X]    Works when stack is full
+[X]    Number is 0
